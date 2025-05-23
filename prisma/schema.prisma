@@ -1,0 +1,125 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Enums
+enum BillingCycle {
+  MONTHLY
+  YEARLY
+  WEEKLY
+  CUSTOM
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  PAUSED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  SUCCESS
+  FAILED
+  PENDING
+}
+
+enum AuthProvider {
+  LOCAL
+  GOOGLE
+}
+
+// Models
+model User {
+  id           BigInt   @id @default(autoincrement())
+  email        String   @unique
+  name         String?
+  profilePicture String? @map("profile_picture")
+  provider     AuthProvider @default(LOCAL)
+  providerId   String? @map("provider_id")
+  passwordHash String   @map("password_hash")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  subscriptions    Subscription[]
+  customCategories Category[]
+  @@index([email])
+  @@map("users")
+
+}
+
+model Category {
+  id        BigInt   @id @default(autoincrement())
+  name      String   @db.VarChar(100)
+  icon      String?  @db.VarChar(50)
+  color     String?  @db.VarChar(7)
+  isDefault Boolean  @default(false) @map("is_default")
+  userId    BigInt?  @map("user_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  user          User?          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subscriptions Subscription[]
+  
+  @@index([userId, name])
+  
+  @@unique([name, userId])
+  @@map("categories")
+}
+
+model Subscription {
+  id              BigInt             @id @default(autoincrement())
+  userId          BigInt             @map("user_id")
+  categoryId      BigInt             @map("category_id")
+  name            String
+  description     String?
+  price           Decimal            @db.Decimal(10, 2)
+  currency        String             @db.VarChar(3)
+  billingCycle    BillingCycle       @map("billing_cycle")
+  customDays      Int?               @map("custom_days")
+  startDate       DateTime           @map("start_date") @db.Date
+  lastRenewalDate DateTime?          @map("last_renewal_date") @db.Date
+  nextRenewalDate DateTime           @map("next_renewal_date") @db.Date
+  status          SubscriptionStatus @default(ACTIVE)
+  createdAt       DateTime           @default(now()) @map("created_at")
+  updatedAt       DateTime           @updatedAt @map("updated_at")
+
+  // Relations
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category Category  @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  payments Payment[]
+
+  // Indexes
+  @@index([userId])
+  @@index([userId, categoryId])
+  @@index([status])
+  @@index([nextRenewalDate])
+  @@index([userId, status])
+  @@map("subscriptions")
+}
+
+model Payment {
+  id             BigInt        @id @default(autoincrement())
+  subscriptionId BigInt        @map("subscription_id")
+  amountPaid     Decimal       @map("amount_paid") @db.Decimal(10, 2)
+  paymentDate    DateTime      @map("payment_date") @db.Date
+  status         PaymentStatus @default(SUCCESS)
+  notes          String?
+  createdAt      DateTime      @default(now()) @map("created_at")
+  updatedAt      DateTime      @updatedAt @map("updated_at")
+
+  // Relations
+  subscription Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+
+  // Indexes
+  @@index([subscriptionId])
+  @@index([paymentDate])
+  @@index([status])
+  @@index([subscriptionId, paymentDate])
+  @@map("payments")
+}
