@@ -25,6 +25,11 @@ const categoryRepository = {
         icon: true,
         color: true,
         isDefault: true,
+        _count: {
+          select: {
+            subscriptions: true,
+          },
+        },
       },
     });
   },
