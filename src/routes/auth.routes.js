@@ -19,6 +19,4 @@ router.post(
   authController.login
 );
 
-router.get('/', authController.getTenRandomUsers);
-
 export default router;
