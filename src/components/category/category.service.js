@@ -1,25 +1,32 @@
-import categoryRepository from './category.repository.js';
-import IDService from '../../utils/IDservice.js';
+export class CategoryService {
+  #repository;
+  #hashedIdService;
 
-const categoryService = {
-  getUserCategories: async (encodedUserId) => {
-    const userId = IDService.decodeId(encodedUserId);
-    const categories = await categoryRepository.getUserCategories(userId);
-    const encodedCategories = categories.map((category) => ({
+  constructor({ repository, hashedIdService }) {
+    if (!repository || !hashedIdService) {
+      throw new Error('Repository and ID Encoder Service are required');
+    }
+    this.#repository = repository;
+    this.#hashedIdService = hashedIdService;
+  }
+
+  async getUserCategories(encodedUserId) {
+    const userId = this.#hashedIdService.decodeId(encodedUserId);
+    const categories = await this.#repository.getUserCategories(userId);
+    return categories.map((category) => ({
       ...category,
-      id: IDService.encodeId(category.id),
+      id: this.#hashedIdService.encodeId(category.id),
     }));
-    return encodedCategories;
-  },
+  }
 
-  createCategory: async (encodedUserId, categoryData) => {
-    const userId = IDService.decodeId(encodedUserId);
+  async createCategory(encodedUserId, categoryData) {
+    const userId = this.#hashedIdService.decodeId(encodedUserId);
     if (categoryData.name && userId) {
-      const category = await categoryRepository.getCategoryByName(
+      const existingCategory = await this.#repository.getCategoryByName(
         userId,
         categoryData.name
       );
-      if (category) {
+      if (existingCategory) {
         const error = new Error('Category already exists');
         error.statusCode = 409;
         throw error;
@@ -30,57 +37,53 @@ const categoryService = {
       error.statusCode = 401;
       throw error;
     }
-    const createdCategory = await categoryRepository.createCategory(
+    const createdCategory = await this.#repository.createCategory(
       userId,
       categoryData
     );
     return {
       ...createdCategory,
-      id: IDService.encodeId(createdCategory.id),
-      userId: IDService.encodeId(createdCategory.userId),
+      id: this.#hashedIdService.encodeId(createdCategory.id),
+      userId: this.#hashedIdService.encodeId(createdCategory.userId),
     };
-  },
+  }
 
-  getCategoryById: async (encodedUserId, encodedCategoryId) => {
-    const userId = IDService.decodeId(encodedUserId);
-    const categoryId = IDService.decodeId(encodedCategoryId);
-    const category = await categoryRepository.getCategoryById(
+  async getCategoryById(encodedUserId, encodedCategoryId) {
+    const userId = this.#hashedIdService.decodeId(encodedUserId);
+    const categoryId = this.#hashedIdService.decodeId(encodedCategoryId);
+    const existingCategory = await this.#repository.getCategoryById(
       userId,
       categoryId
     );
-    if (!category) {
+    if (!existingCategory) {
       const error = new Error('Category not found');
       error.statusCode = 404;
       throw error;
     }
     return {
-      ...category,
-      id: IDService.encodeId(category.id),
+      ...existingCategory,
+      id: this.#hashedIdService.encodeId(existingCategory.id),
     };
-  },
+  }
 
-  updateCategory: async (
-    encodedUserId,
-    encodedCategoryId,
-    categoryUpdatedData
-  ) => {
-    const userId = IDService.decodeId(encodedUserId);
-    const categoryId = IDService.decodeId(encodedCategoryId);
-    const category = await categoryRepository.getCategoryByIdWithUser(
+  async updateCategory(encodedUserId, encodedCategoryId, categoryUpdatedData) {
+    const userId = this.#hashedIdService.decodeId(encodedUserId);
+    const categoryId = this.#hashedIdService.decodeId(encodedCategoryId);
+    const existingCategory = await this.#repository.getCategoryByIdWithUser(
       userId,
       categoryId
     );
-    if (!category) {
+    if (!existingCategory) {
       const error = new Error('Category not found');
       error.statusCode = 404;
       throw error;
     }
-    if (category.isDefault) {
+    if (existingCategory.isDefault) {
       const error = new Error('Cannot update default category');
       error.statusCode = 400;
       throw error;
     }
-    if (userId !== category.userId) {
+    if (userId !== existingCategory.userId) {
       const error = new Error(
         `You don't have permission to update this category`
       );
@@ -88,7 +91,7 @@ const categoryService = {
       throw error;
     }
     if (categoryUpdatedData.name) {
-      const existingCategory = await categoryRepository.getCategoryByName(
+      const existingCategory = await this.#repository.getCategoryByName(
         userId,
         categoryUpdatedData.name
       );
@@ -99,44 +102,42 @@ const categoryService = {
       }
     }
 
-    const updatedCategory = await categoryRepository.updateCategory(
+    const updatedCategory = await this.#repository.updateCategory(
       userId,
       categoryId,
       categoryUpdatedData
     );
     return {
       ...updatedCategory,
-      id: IDService.encodeId(updatedCategory.id),
-      userId: IDService.encodeId(updatedCategory.userId),
+      id: this.#hashedIdService.encodeId(updatedCategory.id),
+      userId: this.#hashedIdService.encodeId(updatedCategory.userId),
     };
-  },
+  }
 
-  deleteCategory: async (encodedUserId, encodedCategoryId) => {
-    const userId = IDService.decodeId(encodedUserId);
-    const categoryId = IDService.decodeId(encodedCategoryId);
-    const category = await categoryRepository.getCategoryById(
+  async deleteCategory(encodedUserId, encodedCategoryId) {
+    const userId = this.#hashedIdService.decodeId(encodedUserId);
+    const categoryId = this.#hashedIdService.decodeId(encodedCategoryId);
+    const existingCategory = await this.#repository.getCategoryById(
       userId,
       categoryId
     );
-    if (!category) {
+    if (!existingCategory) {
       const error = new Error('Category not found');
       error.statusCode = 404;
       throw error;
     }
-    if (category.isDefault) {
+    if (existingCategory.isDefault) {
       const error = new Error('Cannot delete default category');
       error.statusCode = 400;
       throw error;
     }
-    if (category._count.subscriptions > 0) {
+    if (existingCategory._count.subscriptions > 0) {
       const error = new Error(
         'Cannot delete category with existing subscriptions'
       );
       error.statusCode = 400;
       throw error;
     }
-    return await categoryRepository.deleteCategory(userId, categoryId);
-  },
-};
-
-export default categoryService;
+    return await this.#repository.deleteCategory(userId, categoryId);
+  }
+}
