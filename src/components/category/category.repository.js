@@ -1,8 +1,13 @@
-import prisma from '../../config/database.config.js';
-
-const categoryRepository = {
-  getUserCategories: (userId) => {
-    return prisma.category.findMany({
+export class CategoryRepository {
+  #prismaClient;
+  constructor({ prismaClient }) {
+    if (!prismaClient) {
+      throw new Error('CategoryRepository requires a Prisma client.');
+    }
+    this.#prismaClient = prismaClient;
+  }
+  getUserCategories(userId) {
+    return this.#prismaClient.category.findMany({
       where: {
         OR: [{ userId: userId }, { userId: null }],
       },
@@ -14,10 +19,10 @@ const categoryRepository = {
         isDefault: true,
       },
     });
-  },
+  }
 
-  getCategoryById: (userId, categoryId) => {
-    return prisma.category.findFirst({
+  getCategoryById(userId, categoryId) {
+    return this.#prismaClient.category.findFirst({
       where: { id: categoryId, OR: [{ userId: userId }, { userId: null }] },
       select: {
         id: true,
@@ -32,10 +37,10 @@ const categoryRepository = {
         },
       },
     });
-  },
+  }
 
-  getCategoryByIdWithUser: (userId, categoryId) => {
-    return prisma.category.findFirst({
+  getCategoryByIdWithUser(userId, categoryId) {
+    return this.#prismaClient.category.findFirst({
       where: { id: categoryId, OR: [{ userId: userId }, { userId: null }] },
       select: {
         id: true,
@@ -46,18 +51,18 @@ const categoryRepository = {
         userId: true,
       },
     });
-  },
+  }
 
-  getCategoryByName: (userId, categoryName) => {
-    return prisma.category.findFirst({
+  getCategoryByName(userId, categoryName) {
+    return this.#prismaClient.category.findFirst({
       where: {
         userId: userId,
         name: categoryName,
       },
     });
-  },
-  createCategory: (userId, categoryData) => {
-    return prisma.category.create({
+  }
+  createCategory(userId, categoryData) {
+    return this.#prismaClient.category.create({
       data: {
         name: categoryData.name,
         icon: categoryData.icon,
@@ -65,10 +70,10 @@ const categoryRepository = {
         userId: userId,
       },
     });
-  },
+  }
 
-  updateCategory: (userId, categoryId, categoryData) => {
-    return prisma.category.update({
+  updateCategory(userId, categoryId, categoryData) {
+    return this.#prismaClient.category.update({
       where: { id: categoryId },
       data: {
         name: categoryData.name,
@@ -77,13 +82,11 @@ const categoryRepository = {
         userId: userId,
       },
     });
-  },
+  }
 
-  deleteCategory: (userId, categoryId) => {
-    return prisma.category.delete({
+  deleteCategory(userId, categoryId) {
+    return this.#prismaClient.category.delete({
       where: { userId: userId, id: categoryId },
     });
-  },
-};
-
-export default categoryRepository;
+  }
+}
